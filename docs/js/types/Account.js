@@ -1,8 +1,16 @@
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+import { Storage } from '../utils/Storage.js';
+import { ValidateDebit, ValidateDeposit } from './Decorators.js';
 import { TransactionType } from './TransactionType.js';
 export class Account {
     name;
-    balance = JSON.parse(localStorage.getItem('balance')) || 0;
-    transactions = JSON.parse(localStorage.getItem('transactions'), (key, value) => {
+    balance = Storage.getValue('balance') || 0;
+    transactions = Storage.getValue('transactions', (key, value) => {
         if (key === 'date') {
             return new Date(value);
         }
@@ -11,6 +19,9 @@ export class Account {
     constructor(name) {
         this.name = name;
     }
+    getHolder() {
+        return this.name;
+    }
     getBalance() {
         return this.balance;
     }
@@ -18,21 +29,12 @@ export class Account {
         return new Date();
     }
     debit(value) {
-        if (value <= 0) {
-            throw new Error('O valor a ser debitado deve ser maior que zero!');
-        }
-        if (value > this.balance) {
-            throw new Error('Saldo insuficiente!');
-        }
         this.balance -= value;
-        localStorage.setItem('balance', this.balance.toString());
+        Storage.saveValue('balance', this.balance);
     }
     deposit(value) {
-        if (value <= 0) {
-            throw new Error('O valor a ser depositado deve ser maior que zero!');
-        }
         this.balance += value;
-        localStorage.setItem('balance', this.balance.toString());
+        Storage.saveValue('balance', this.balance);
     }
     getTransactionsGroups() {
         const transactionsGroups = [];
@@ -68,8 +70,24 @@ export class Account {
         }
         this.transactions.push(newTransaction);
         // console.log(this.getTransactionsGroups());
-        localStorage.setItem('transactions', JSON.stringify(this.transactions));
+        Storage.saveValue('transactions', this.transactions);
+    }
+}
+__decorate([
+    ValidateDebit
+], Account.prototype, "debit", null);
+__decorate([
+    ValidateDeposit
+], Account.prototype, "deposit", null);
+export class PremiumAccount extends Account {
+    registerTransaction(transaction) {
+        if (transaction.transactionType === TransactionType.DEPOSIT) {
+            console.log('Ganhou um bônus de 50 centavos!');
+            transaction.value += .5;
+        }
+        super.registerTransaction(transaction);
     }
 }
 const account = new Account('Joana da Silva Oliveira');
+const premiumAccount = new PremiumAccount('Lavinia Souza Barbosa');
 export default account;

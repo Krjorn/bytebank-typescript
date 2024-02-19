@@ -1,11 +1,13 @@
+import { Storage } from '../utils/Storage.js';
+import { ValidateDebit, ValidateDeposit } from './Decorators.js';
 import { Transaction } from './Transaction.js';
 import { TransactionGroup } from './TransactionGroup.js';
 import { TransactionType } from './TransactionType.js';
 
 export class Account {
-    name: string;
-    balance: number = JSON.parse(localStorage.getItem('balance')) || 0;
-    transactions: Transaction[] = JSON.parse(localStorage.getItem('transactions'), (key: string, value: any) => {
+    protected name: string;
+    protected balance: number = Storage.getValue<number>('balance') || 0;
+    private transactions: Transaction[] = Storage.getValue<Transaction[]>('transactions', (key: string, value: any) => {
         if(key === 'date') {
             return new Date(value);
         }
@@ -13,41 +15,35 @@ export class Account {
         return value;
     }) || [];
 
-    constructor(name: string) {
+    public constructor(name: string) {
         this.name = name;
     }
 
-    getBalance(): number {
+    public getHolder(): string {
+        return this.name;
+    }
+
+    public getBalance(): number {
         return this.balance;
     }
 
-    getAccessDate(): Date {
+    public getAccessDate(): Date {
         return new Date();
     }
 
-    debit(value: number): void {
-        if(value <= 0) {
-            throw new Error('O valor a ser debitado deve ser maior que zero!');
-        }
-    
-        if(value > this.balance) {
-            throw new Error('Saldo insuficiente!');
-        }
-    
+    @ValidateDebit
+    protected debit(value: number): void {
         this.balance -= value;
-        localStorage.setItem('balance', this.balance.toString());
+        Storage.saveValue('balance', this.balance);
     }
 
-    deposit(value: number): void {
-        if(value <= 0) {
-            throw new Error('O valor a ser depositado deve ser maior que zero!');
-        }
-    
+    @ValidateDeposit
+    protected deposit(value: number): void {
         this.balance += value;
-        localStorage.setItem('balance', this.balance.toString());
+        Storage.saveValue('balance', this.balance);
     }
 
-    getTransactionsGroups(): TransactionGroup[] {
+    public getTransactionsGroups(): TransactionGroup[] {
         const transactionsGroups: TransactionGroup[] = [];
         const transactionsList: Transaction[] = structuredClone(this.transactions);
         const orderedTransactions: Transaction[] = transactionsList.sort((t1, t2) => t2.date.getTime() - t1.date.getTime());
@@ -74,7 +70,7 @@ export class Account {
         return transactionsGroups;
     }
 
-    registerTransaction(newTransaction: Transaction): void {
+    public registerTransaction(newTransaction: Transaction): void {
         if(newTransaction.transactionType === TransactionType.DEPOSIT) {
             this.deposit(newTransaction.value);
         } else if(newTransaction.transactionType === TransactionType.TRANSFER || newTransaction.transactionType === TransactionType.PAYMENT) {
@@ -86,10 +82,22 @@ export class Account {
 
         this.transactions.push(newTransaction);
         // console.log(this.getTransactionsGroups());
-        localStorage.setItem('transactions', JSON.stringify(this.transactions));
+        Storage.saveValue('transactions', this.transactions);
+    }
+}
+
+export class PremiumAccount extends Account {
+    public registerTransaction(transaction: Transaction): void {
+        if(transaction.transactionType === TransactionType.DEPOSIT) {
+            console.log('Ganhou um bônus de 50 centavos!');
+            transaction.value += .5;
+        }
+
+        super.registerTransaction(transaction);
     }
 }
 
 const account: Account = new Account('Joana da Silva Oliveira');
+const premiumAccount: PremiumAccount = new PremiumAccount('Lavinia Souza Barbosa');
 
 export default account;
